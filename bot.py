@@ -126,7 +126,7 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if is_banned(uid):
         return await update.message.reply_text("🚫 You are banned")
 
-    # ===== ADMIN BUTTONS =====
+    # ===== ADMIN ACTIONS =====
     if uid == ADMIN_ID:
 
         if text == "🔑 Generate Key":
@@ -153,8 +153,10 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return await update.message.reply_text("Enter User ID:")
 
         if context.user_data.get("action") == "unban":
-            data["banned"].remove(int(text))
-            save()
+            uid2 = int(text)
+            if uid2 in data["banned"]:
+                data["banned"].remove(uid2)
+                save()
             context.user_data["action"] = None
             return await update.message.reply_text("✅ Unbanned")
 
@@ -165,6 +167,7 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if context.user_data.get("action") == "info":
             uid2 = text
             email = data["emails"].get(uid2, {})
+            context.user_data["action"] = None
             return await update.message.reply_text(pro(str(email)))
 
     # ===== KEY SYSTEM =====
@@ -179,7 +182,7 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not check_user(uid):
         return await update.message.reply_text("🔑 Invalid Key")
 
-    # ===== USER BUTTONS =====
+    # ===== USER ACTIONS =====
     if text == "🔍 Check Bind":
         context.user_data["action"] = "bind"
         return await update.message.reply_text("Send Token:")
@@ -214,17 +217,17 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return await update.message.reply_text(pro("✅ Email Saved"))
 
 # ========= WEBHOOK =========
-loop = asyncio.get_event_loop()
-
 @app.route(f"/{BOT_TOKEN}", methods=["POST"])
 def webhook():
     try:
         data_update = request.get_json(force=True)
         update = Update.de_json(data_update, bot_app.bot)
-        loop.run_until_complete(bot_app.process_update(update))
+
+        asyncio.run(bot_app.process_update(update))
+
         return "ok"
     except Exception as e:
-        print("Error:", e)
+        print("Webhook Error:", e)
         return "error"
 
 @app.route("/")
@@ -238,5 +241,6 @@ async def main():
 
 if __name__ == "__main__":
     asyncio.run(main())
+
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
