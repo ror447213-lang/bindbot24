@@ -209,7 +209,12 @@ def home():
     return "Bot Running"
 
 # ========= RUN =========
+import asyncio
+
 if __name__ == "__main__":
-    bot_app.initialize()
-    bot_app.start()
+    async def main():
+        await bot_app.initialize()
+        await bot_app.start()
+    
+    asyncio.run(main())
     app.run(host="0.0.0.0", port=10000)
