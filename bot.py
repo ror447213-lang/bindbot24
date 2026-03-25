@@ -220,10 +220,11 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
 @app.route(f"/{BOT_TOKEN}", methods=["POST"])
 def webhook():
     try:
+        print("Webhook hit")   # 👈 debug
+
         data_update = request.get_json(force=True)
         update = Update.de_json(data_update, bot_app.bot)
 
-        # FIX: create new loop properly
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         loop.run_until_complete(bot_app.process_update(update))
@@ -233,10 +234,6 @@ def webhook():
     except Exception as e:
         print("Webhook Error:", e)
         return "error"
-@app.route("/")
-def home():
-    return "Bot Running"
-
 # ========= RUN =========
 async def main():
     await bot_app.initialize()
