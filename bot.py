@@ -197,13 +197,16 @@ bot_app.add_handler(CommandHandler("userinfo", userinfo))
 bot_app.add_handler(MessageHandler(filters.TEXT, handle))
 
 # ========= WEBHOOK =========
+import asyncio
+
 @app.route(f"/{BOT_TOKEN}", methods=["POST"])
-async def webhook():
+def webhook():
     data_update = request.get_json(force=True)
     update = Update.de_json(data_update, bot_app.bot)
-    await bot_app.process_update(update)
-    return "ok"
 
+    asyncio.run(bot_app.process_update(update))
+
+    return "ok"
 @app.route("/")
 def home():
     return "Bot Running"
