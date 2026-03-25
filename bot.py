@@ -210,11 +210,14 @@ def home():
 
 # ========= RUN =========
 import asyncio
+import os
+
+async def main():
+    await bot_app.initialize()
+    await bot_app.start()
 
 if __name__ == "__main__":
-    async def main():
-        await bot_app.initialize()
-        await bot_app.start()
-    
     asyncio.run(main())
-    app.run(host="0.0.0.0", port=10000)
+
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host="0.0.0.0", port=port)
