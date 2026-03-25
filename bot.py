@@ -223,13 +223,16 @@ def webhook():
         data_update = request.get_json(force=True)
         update = Update.de_json(data_update, bot_app.bot)
 
-        asyncio.run(bot_app.process_update(update))
+        # FIX: create new loop properly
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(bot_app.process_update(update))
+        loop.close()
 
         return "ok"
     except Exception as e:
         print("Webhook Error:", e)
         return "error"
-
 @app.route("/")
 def home():
     return "Bot Running"
