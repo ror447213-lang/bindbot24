@@ -1,5 +1,5 @@
 from flask import Flask, request
-import json, os, requests, time, random, string, asyncio
+import json, os, requests, time, random, string, asyncio, threading
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import (
     ApplicationBuilder, CommandHandler, ContextTypes,
@@ -101,8 +101,7 @@ async def panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if uid == ADMIN_ID:
         kb = [
             ["🔑 Generate Key", "⛔ Ban User"],
-            ["✅ Unban User", "📊 User Info"],
-            ["📢 Broadcast"]
+            ["✅ Unban User", "📊 User Info"]
         ]
     else:
         kb = [
@@ -126,7 +125,7 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if is_banned(uid):
         return await update.message.reply_text("🚫 You are banned")
 
-    # ===== ADMIN ACTIONS =====
+    # ADMIN
     if uid == ADMIN_ID:
 
         if text == "🔑 Generate Key":
@@ -160,17 +159,7 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
             context.user_data["action"] = None
             return await update.message.reply_text("✅ Unbanned")
 
-        if text == "📊 User Info":
-            context.user_data["action"] = "info"
-            return await update.message.reply_text("Enter User ID:")
-
-        if context.user_data.get("action") == "info":
-            uid2 = text
-            email = data["emails"].get(uid2, {})
-            context.user_data["action"] = None
-            return await update.message.reply_text(pro(str(email)))
-
-    # ===== KEY SYSTEM =====
+    # KEY SYSTEM
     if text in data["keys"]:
         exp = data["keys"].pop(text)
         data["users"][str(uid)] = exp
@@ -182,7 +171,7 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not check_user(uid):
         return await update.message.reply_text("🔑 Invalid Key")
 
-    # ===== USER ACTIONS =====
+    # USER
     if text == "🔍 Check Bind":
         context.user_data["action"] = "bind"
         return await update.message.reply_text("Send Token:")
@@ -191,36 +180,24 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
         context.user_data["action"] = "links"
         return await update.message.reply_text("Send Token:")
 
-    elif text == "❌ Cancel Bind":
-        context.user_data["action"] = "cancel"
-        return await update.message.reply_text("Send Token:")
-
-    elif text == "⚡ Revoke Token":
-        context.user_data["action"] = "revoke"
-        return await update.message.reply_text("Send Token:")
-
-    elif text == "📩 Bind Email":
-        context.user_data["action"] = "email"
-        return await update.message.reply_text("Enter Email:")
-
     action = context.user_data.get("action")
 
-    if action in ["bind", "links", "cancel", "revoke"]:
+    if action in ["bind", "links"]:
         res = call_api(action, text)
         context.user_data["action"] = None
         return await update.message.reply_text(pro(str(res)))
 
-    if action == "email":
-        data["emails"][str(uid)] = {"current": text, "pending": None}
-        save()
-        context.user_data["action"] = None
-        return await update.message.reply_text(pro("✅ Email Saved"))
+# ========= REGISTER =========
+bot_app.add_handler(CommandHandler("start", start))
+bot_app.add_handler(CommandHandler("genkey", genkey))
+bot_app.add_handler(CommandHandler("panel", panel))
+bot_app.add_handler(MessageHandler(filters.TEXT, handle))
 
 # ========= WEBHOOK =========
 @app.route(f"/{BOT_TOKEN}", methods=["POST"])
 def webhook():
     try:
-        print("Webhook hit")   # 👈 debug
+        print("Webhook hit")
 
         data_update = request.get_json(force=True)
         update = Update.de_json(data_update, bot_app.bot)
@@ -234,13 +211,21 @@ def webhook():
     except Exception as e:
         print("Webhook Error:", e)
         return "error"
+
+@app.route("/", methods=["GET"])
+def home():
+    return "Bot Running", 200
+
 # ========= RUN =========
 async def main():
     await bot_app.initialize()
     await bot_app.start()
 
-if __name__ == "__main__":
+def run_bot():
     asyncio.run(main())
+
+if __name__ == "__main__":
+    threading.Thread(target=run_bot).start()
 
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
