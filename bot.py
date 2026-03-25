@@ -7,7 +7,7 @@ from telegram.ext import (
 )
 
 # ========= CONFIG =========
-BOT_TOKEN = "8637581331:AAF6Ji2bV3EHa-Dfsf98kMAycDL987MJ3L8"
+BOT_TOKEN = "8637581331:AAGn9lI6do6CfAsqMYCL2HgH8Xfd9RQ1BS8"
 ADMIN_ID = 7634132457
 
 API_BASE = "https://ff-bind-rohit-l.vercel.app"
