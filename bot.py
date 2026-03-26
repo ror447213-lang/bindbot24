@@ -21,7 +21,13 @@ DATA_FILE = "data.json"
 
 def load():
     if not os.path.exists(DATA_FILE):
-        return {"keys": {}, "users": {}, "emails": {}, "banned": []}
+        return {
+            "keys": {},
+            "users": {},
+            "emails": {},
+            "banned": [],
+            "usernames": {}
+        }
     return json.load(open(DATA_FILE))
 
 def save():
@@ -41,19 +47,33 @@ def gen_key(hours):
     return key
 
 def is_banned(uid):
-    return uid in data.get("banned", [])
+    return int(uid) in set(data.get("banned", []))
 
 def check_user(uid):
     if uid == ADMIN_ID:
         return True
+
     exp = data["users"].get(str(uid))
-    return exp and exp > time.time()
+
+    if not exp:
+        return False
+
+    if time.time() > exp:
+        return False
+
+    return True
 
 def remaining(exp):
     left = int(exp - time.time())
+
     if left <= 0:
         return "Expired"
-    return f"{left//3600}h {(left%3600)//60}m"
+
+    h = left // 3600
+    m = (left % 3600) // 60
+    s = left % 60
+
+    return f"{h}h {m}m {s}s"
 
 def call_api(endpoint, token):
     try:
@@ -118,14 +138,18 @@ async def panel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ========= HANDLER =========
 async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
     uid = update.effective_user.id
-    text = update.message.text
+    text = update.message.text.strip()
+
+    # save username
+    data["usernames"][str(uid)] = update.effective_user.username
+    save()
 
     await log(update, context)
 
     if is_banned(uid):
         return await update.message.reply_text("🚫 You are banned")
 
-    # ADMIN
+    # ===== ADMIN =====
     if uid == ADMIN_ID:
 
         if text == "🔑 Generate Key":
@@ -139,27 +163,45 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         if text == "⛔ Ban User":
             context.user_data["action"] = "ban"
-            return await update.message.reply_text("Enter User ID:")
+            return await update.message.reply_text("Enter ID or @username:")
 
         if context.user_data.get("action") == "ban":
-            data["banned"].append(int(text))
+            target = text
+
+            if target.isdigit():
+                data["banned"].append(int(target))
+            else:
+                for uid_, uname in data["usernames"].items():
+                    if uname and uname.lower() == target.replace("@","").lower():
+                        data["banned"].append(int(uid_))
+
+            data["banned"] = list(set(data["banned"]))
             save()
             context.user_data["action"] = None
             return await update.message.reply_text("🚫 Banned")
 
         if text == "✅ Unban User":
             context.user_data["action"] = "unban"
-            return await update.message.reply_text("Enter User ID:")
+            return await update.message.reply_text("Enter ID or @username:")
 
         if context.user_data.get("action") == "unban":
-            uid2 = int(text)
-            if uid2 in data["banned"]:
-                data["banned"].remove(uid2)
-                save()
+            target = text
+
+            if target.isdigit():
+                uid2 = int(target)
+                if uid2 in data["banned"]:
+                    data["banned"].remove(uid2)
+            else:
+                for uid_, uname in data["usernames"].items():
+                    if uname and uname.lower() == target.replace("@","").lower():
+                        if int(uid_) in data["banned"]:
+                            data["banned"].remove(int(uid_))
+
+            save()
             context.user_data["action"] = None
             return await update.message.reply_text("✅ Unbanned")
 
-    # KEY SYSTEM
+    # ===== KEY SYSTEM =====
     if text in data["keys"]:
         exp = data["keys"].pop(text)
         data["users"][str(uid)] = exp
@@ -171,7 +213,7 @@ async def handle(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not check_user(uid):
         return await update.message.reply_text("🔑 Invalid Key")
 
-    # USER
+    # ===== USER =====
     if text == "🔍 Check Bind":
         context.user_data["action"] = "bind"
         return await update.message.reply_text("Send Token:")
